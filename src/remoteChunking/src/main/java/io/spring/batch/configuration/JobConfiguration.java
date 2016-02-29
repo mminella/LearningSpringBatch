@@ -40,6 +40,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.integration.scheduling.PollerMetadata;
 import org.springframework.scheduling.support.PeriodicTrigger;
 
@@ -131,6 +132,7 @@ public class JobConfiguration implements ApplicationContextAware {
 	}
 
 	@Bean
+	@Profile("master")
 	public Job job() throws Exception {
 		return jobBuilderFactory.get("job")
 				.start(step1())

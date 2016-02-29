@@ -22,7 +22,7 @@ import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
-import org.springframework.integration.amqp.inbound.AmqpInboundGateway;
+import org.springframework.integration.amqp.inbound.AmqpInboundChannelAdapter;
 import org.springframework.integration.amqp.outbound.AmqpOutboundEndpoint;
 import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.integration.channel.DirectChannel;
@@ -71,15 +71,14 @@ public class IntegrationConfiguration {
 
 	@Bean
 	@Profile("slave")
-	public AmqpInboundGateway inbound(SimpleMessageListenerContainer listenerContainer) {
-		AmqpInboundGateway gateway = new AmqpInboundGateway(listenerContainer);
+	public AmqpInboundChannelAdapter inbound(SimpleMessageListenerContainer listenerContainer) {
+		AmqpInboundChannelAdapter adapter = new AmqpInboundChannelAdapter(listenerContainer);
 
-		gateway.setRequestChannel(inboundRequests());
-		gateway.setRequestTimeout(60000000l);
+		adapter.setOutputChannel(inboundRequests());
 
-		gateway.afterPropertiesSet();
+		adapter.afterPropertiesSet();
 
-		return gateway;
+		return adapter;
 	}
 
 	@Bean
@@ -87,7 +86,7 @@ public class IntegrationConfiguration {
 		SimpleMessageListenerContainer container =
 				new SimpleMessageListenerContainer(connectionFactory);
 		container.setQueueNames("partition.requests");
-		container.setConcurrentConsumers(1);
+		container.setAutoStartup(false);
 
 		return container;
 	}

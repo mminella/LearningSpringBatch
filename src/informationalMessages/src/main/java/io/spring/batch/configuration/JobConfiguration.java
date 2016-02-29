@@ -32,7 +32,6 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.integration.annotation.BridgeFrom;
 import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.integration.channel.DirectChannel;
 import org.springframework.integration.gateway.GatewayProxyFactoryBean;
@@ -91,27 +90,10 @@ public class JobConfiguration implements ApplicationContextAware{
 	}
 
 	@Bean
-	public DirectChannel jobExecutions() {
-		return new DirectChannel();
-	}
-
-	@Bean
-	@BridgeFrom(value = "jobExecutions")
-	public DirectChannel events() {
-		return new DirectChannel();
-	}
-
-	@Bean
-	@ServiceActivator(inputChannel = "events")
-	public CharacterStreamWritingMessageHandler logger() {
-		return CharacterStreamWritingMessageHandler.stdout();
-	}
-
-	@Bean
 	public Object jobExecutionlistener() throws Exception {
 		GatewayProxyFactoryBean proxyFactoryBean = new GatewayProxyFactoryBean(JobExecutionListener.class);
 
-		proxyFactoryBean.setDefaultRequestChannel(jobExecutions());
+		proxyFactoryBean.setDefaultRequestChannel(events());
 		proxyFactoryBean.setBeanFactory(this.applicationContext);
 
 		return proxyFactoryBean.getObject();
@@ -125,6 +107,17 @@ public class JobConfiguration implements ApplicationContextAware{
 		proxyFactoryBean.setBeanFactory(this.applicationContext);
 
 		return proxyFactoryBean.getObject();
+	}
+
+	@Bean
+	public DirectChannel events() {
+		return new DirectChannel();
+	}
+
+	@Bean
+	@ServiceActivator(inputChannel = "events")
+	public CharacterStreamWritingMessageHandler logger() {
+		return CharacterStreamWritingMessageHandler.stdout();
 	}
 
 	@Override
