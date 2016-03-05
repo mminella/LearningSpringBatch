@@ -64,15 +64,6 @@ public class JobConfiguration implements ApplicationContextAware {
 
 	private ApplicationContext applicationContext;
 
-	private static final int GRID_SIZE = 4;
-
-	@Bean(name = PollerMetadata.DEFAULT_POLLER)
-	public PollerMetadata defaultPoller() {
-		PollerMetadata pollerMetadata = new PollerMetadata();
-		pollerMetadata.setTrigger(new PeriodicTrigger(10));
-		return pollerMetadata;
-	}
-
 	@Bean
 	public JdbcPagingItemReader<Customer> pagingItemReader() {
 		JdbcPagingItemReader<Customer> reader = new JdbcPagingItemReader<>();
@@ -98,15 +89,10 @@ public class JobConfiguration implements ApplicationContextAware {
 
 	@Bean
 	public ItemProcessor<Customer, Customer> upperCaseItemProcessor() {
-		return new ItemProcessor<Customer, Customer>() {
-			@Override
-			public Customer process(Customer item) throws Exception {
-				return new Customer(item.getId(),
-						item.getFirstName().toUpperCase(),
-						item.getLastName().toUpperCase(),
-						item.getBirthdate());
-			}
-		};
+		return item -> new Customer(item.getId(),
+				item.getFirstName().toUpperCase(),
+				item.getLastName().toUpperCase(),
+				item.getBirthdate());
 	}
 
 	@Bean

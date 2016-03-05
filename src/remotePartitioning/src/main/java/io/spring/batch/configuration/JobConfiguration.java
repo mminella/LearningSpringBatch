@@ -26,14 +26,10 @@ import io.spring.batch.domain.CustomerRowMapper;
 
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
-import org.springframework.batch.core.configuration.BatchConfigurationException;
-import org.springframework.batch.core.configuration.annotation.DefaultBatchConfigurer;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.explore.JobExplorer;
-import org.springframework.batch.core.launch.JobLauncher;
-import org.springframework.batch.core.launch.support.SimpleJobLauncher;
 import org.springframework.batch.core.partition.PartitionHandler;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.integration.partition.BeanFactoryStepLocator;
@@ -52,7 +48,6 @@ import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
-import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.integration.core.MessagingTemplate;
 import org.springframework.integration.scheduling.PollerMetadata;
@@ -62,7 +57,7 @@ import org.springframework.scheduling.support.PeriodicTrigger;
  * @author Michael Minella
  */
 @Configuration
-public class JobConfiguration extends DefaultBatchConfigurer implements ApplicationContextAware {
+public class JobConfiguration implements ApplicationContextAware {
 
 	@Autowired
 	public JobBuilderFactory jobBuilderFactory;
@@ -82,22 +77,6 @@ public class JobConfiguration extends DefaultBatchConfigurer implements Applicat
 	private ApplicationContext applicationContext;
 
 	private static final int GRID_SIZE = 4;
-
-	@Override
-	public JobLauncher getJobLauncher() {
-		SimpleJobLauncher jobLauncher = new SimpleJobLauncher();
-		jobLauncher.setJobRepository(this.jobRepository);
-		jobLauncher.setTaskExecutor(new SimpleAsyncTaskExecutor());
-
-		try {
-			jobLauncher.afterPropertiesSet();
-		}
-		catch (Exception e) {
-			throw new BatchConfigurationException(e);
-		}
-
-		return jobLauncher;
-	}
 
 	@Bean
 	public PartitionHandler partitionHandler(MessagingTemplate messagingTemplate) throws Exception {

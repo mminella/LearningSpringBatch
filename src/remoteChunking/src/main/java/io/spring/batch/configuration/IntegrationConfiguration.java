@@ -15,30 +15,78 @@
  */
 package io.spring.batch.configuration;
 
+import io.spring.batch.domain.Customer;
+
 import org.springframework.amqp.core.AmqpTemplate;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
+import org.springframework.batch.core.step.item.SimpleChunkProcessor;
 import org.springframework.batch.core.step.tasklet.TaskletStep;
 import org.springframework.batch.integration.chunk.ChunkHandler;
 import org.springframework.batch.integration.chunk.ChunkMessageChannelItemWriter;
+import org.springframework.batch.integration.chunk.ChunkProcessorChunkHandler;
 import org.springframework.batch.integration.chunk.RemoteChunkHandlerFactoryBean;
+import org.springframework.batch.item.ItemProcessor;
+import org.springframework.batch.item.ItemWriter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.integration.amqp.inbound.AmqpInboundGateway;
+import org.springframework.context.annotation.Profile;
+import org.springframework.integration.amqp.inbound.AmqpInboundChannelAdapter;
 import org.springframework.integration.amqp.outbound.AmqpOutboundEndpoint;
 import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.integration.channel.DirectChannel;
 import org.springframework.integration.channel.QueueChannel;
 import org.springframework.integration.core.MessagingTemplate;
+import org.springframework.integration.scheduling.PollerMetadata;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.PollableChannel;
+import org.springframework.scheduling.support.PeriodicTrigger;
 
 /**
  * @author Michael Minella
  */
 @Configuration
 public class IntegrationConfiguration {
+
+	public static final String CHUNKING_REQUESTS = "chunking.requests";
+
+	@Bean
+	@Profile("slave")
+	public AmqpInboundChannelAdapter inboundRequests(SimpleMessageListenerContainer listenerContainer) {
+		AmqpInboundChannelAdapter adapter = new AmqpInboundChannelAdapter(listenerContainer);
+
+		adapter.setOutputChannel(inboundRequests());
+
+		adapter.afterPropertiesSet();
+
+		return adapter;
+	}
+
+	@Bean
+	@Profile("slave")
+	@ServiceActivator(inputChannel = "inboundRequests", outputChannel = "outboundReplies")
+	public ChunkProcessorChunkHandler chunkProcessorChunkHandler(ItemProcessor<Customer, Customer> itemProcessor, ItemWriter<Customer> itemWriter) throws Exception {
+		SimpleChunkProcessor chunkProcessor = new SimpleChunkProcessor<>(itemProcessor, itemWriter);
+		chunkProcessor.afterPropertiesSet();
+
+		ChunkProcessorChunkHandler<Customer> chunkHandler = new ChunkProcessorChunkHandler<>();
+
+		chunkHandler.setChunkProcessor(chunkProcessor);
+		chunkHandler.afterPropertiesSet();
+
+		return chunkHandler;
+	}
+
+	@Bean
+	public ChunkHandler chunkHandler(TaskletStep step1) throws Exception {
+		RemoteChunkHandlerFactoryBean factoryBean = new RemoteChunkHandlerFactoryBean();
+
+		factoryBean.setChunkWriter(chunkWriter());
+		factoryBean.setStep(step1);
+
+		return factoryBean.getObject();
+	}
 
 	@Bean
 	public ChunkMessageChannelItemWriter chunkWriter() {
@@ -49,17 +97,6 @@ public class IntegrationConfiguration {
 		chunkWriter.setMaxWaitTimeouts(10);
 
 		return chunkWriter;
-	}
-
-	@Bean
-	@ServiceActivator(inputChannel = "inboundRequests", outputChannel = "outboundReplies")
-	public ChunkHandler chunkHandler(TaskletStep step1) throws Exception {
-		RemoteChunkHandlerFactoryBean factoryBean = new RemoteChunkHandlerFactoryBean();
-
-		factoryBean.setChunkWriter(chunkWriter());
-		factoryBean.setStep(step1);
-
-		return factoryBean.getObject();
 	}
 
 	@Bean
@@ -83,7 +120,7 @@ public class IntegrationConfiguration {
 
 	@Bean
 	public Queue requestQueue() {
-		return new Queue("chunking.requests", false);
+		return new Queue(CHUNKING_REQUESTS, false);
 	}
 
 	@Bean
@@ -101,34 +138,28 @@ public class IntegrationConfiguration {
 	public AmqpOutboundEndpoint amqpOutboundEndpoint(AmqpTemplate template) {
 		AmqpOutboundEndpoint endpoint = new AmqpOutboundEndpoint(template);
 
-		endpoint.setExpectReply(true);
+		endpoint.setExpectReply(false);
 		endpoint.setOutputChannel(inboundReplies());
 
-		endpoint.setRoutingKey("chunking.requests");
+		endpoint.setRoutingKey(CHUNKING_REQUESTS);
 
 		return endpoint;
-	}
-
-	@Bean
-	public AmqpInboundGateway inbound(SimpleMessageListenerContainer listenerContainer) {
-		AmqpInboundGateway gateway = new AmqpInboundGateway(listenerContainer);
-
-		gateway.setRequestChannel(inboundRequests());
-		gateway.setRequestTimeout(60000000l);
-		gateway.setReplyChannel(outboundReplies());
-
-		gateway.afterPropertiesSet();
-
-		return gateway;
 	}
 
 	@Bean
 	public SimpleMessageListenerContainer container(ConnectionFactory connectionFactory) {
 		SimpleMessageListenerContainer container =
 				new SimpleMessageListenerContainer(connectionFactory);
-		container.setQueueNames("chunking.requests");
-		container.setConcurrentConsumers(4);
+		container.setQueueNames(CHUNKING_REQUESTS);
+		container.setAutoStartup(false);
 
 		return container;
+	}
+
+	@Bean(name = PollerMetadata.DEFAULT_POLLER)
+	public PollerMetadata defaultPoller() {
+		PollerMetadata pollerMetadata = new PollerMetadata();
+		pollerMetadata.setTrigger(new PeriodicTrigger(10));
+		return pollerMetadata;
 	}
 }
