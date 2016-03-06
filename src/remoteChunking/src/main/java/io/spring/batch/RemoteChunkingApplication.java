@@ -8,9 +8,10 @@ import org.springframework.integration.annotation.IntegrationComponentScan;
 @SpringBootApplication
 @EnableBatchProcessing
 @IntegrationComponentScan
+//@EnableIntegration
 public class RemoteChunkingApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.exit(SpringApplication.run(RemoteChunkingApplication.class, args));
+		SpringApplication.run(RemoteChunkingApplication.class, args);
 	}
 }

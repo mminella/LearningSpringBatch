@@ -34,21 +34,16 @@ import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.batch.item.database.Order;
 import org.springframework.batch.item.database.support.MySqlPagingQueryProvider;
-import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
-import org.springframework.integration.scheduling.PollerMetadata;
-import org.springframework.scheduling.support.PeriodicTrigger;
 
 /**
  * @author Michael Minella
  */
 @Configuration
-public class JobConfiguration implements ApplicationContextAware {
+public class JobConfiguration {
 
 	@Autowired
 	public JobBuilderFactory jobBuilderFactory;
@@ -61,8 +56,6 @@ public class JobConfiguration implements ApplicationContextAware {
 
 	@Autowired
 	public JobExplorer jobExplorer;
-
-	private ApplicationContext applicationContext;
 
 	@Bean
 	public JdbcPagingItemReader<Customer> pagingItemReader() {
@@ -123,10 +116,5 @@ public class JobConfiguration implements ApplicationContextAware {
 		return jobBuilderFactory.get("job")
 				.start(step1())
 				.build();
-	}
-
-	@Override
-	public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-		this.applicationContext = applicationContext;
 	}
 }

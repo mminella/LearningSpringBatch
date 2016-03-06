@@ -40,7 +40,6 @@ import org.springframework.integration.channel.QueueChannel;
 import org.springframework.integration.core.MessagingTemplate;
 import org.springframework.integration.scheduling.PollerMetadata;
 import org.springframework.messaging.MessageChannel;
-import org.springframework.messaging.PollableChannel;
 import org.springframework.scheduling.support.PeriodicTrigger;
 
 /**
@@ -50,13 +49,26 @@ import org.springframework.scheduling.support.PeriodicTrigger;
 public class IntegrationConfiguration {
 
 	public static final String CHUNKING_REQUESTS = "chunking.requests";
+	public static final String CHUNKING_REPLIES = "chunking.replies";
 
 	@Bean
 	@Profile("slave")
-	public AmqpInboundChannelAdapter inboundRequests(SimpleMessageListenerContainer listenerContainer) {
+	public AmqpInboundChannelAdapter inboundRequestsAdapter(SimpleMessageListenerContainer listenerContainer) {
 		AmqpInboundChannelAdapter adapter = new AmqpInboundChannelAdapter(listenerContainer);
 
 		adapter.setOutputChannel(inboundRequests());
+
+		adapter.afterPropertiesSet();
+
+		return adapter;
+	}
+
+	@Bean
+	@Profile("master")
+	public AmqpInboundChannelAdapter inboundRepliesAdapter(SimpleMessageListenerContainer listenerContainer) {
+		AmqpInboundChannelAdapter adapter = new AmqpInboundChannelAdapter(listenerContainer);
+
+		adapter.setOutputChannel(inboundReplies());
 
 		adapter.afterPropertiesSet();
 
@@ -124,13 +136,18 @@ public class IntegrationConfiguration {
 	}
 
 	@Bean
+	public Queue replyQueue() {
+		return new Queue(CHUNKING_REPLIES, false);
+	}
+
+	@Bean
 	public MessageChannel outboundRequests() {
 		return new DirectChannel();
 	}
 
 	@Bean
-	public PollableChannel inboundRequests() {
-		return new QueueChannel();
+	public MessageChannel inboundRequests() {
+		return new DirectChannel();
 	}
 
 	@Bean
@@ -147,10 +164,35 @@ public class IntegrationConfiguration {
 	}
 
 	@Bean
-	public SimpleMessageListenerContainer container(ConnectionFactory connectionFactory) {
+	@Profile("slave")
+	@ServiceActivator(inputChannel = "outboundReplies")
+	public AmqpOutboundEndpoint amqpOutboundEndpointReplies(AmqpTemplate template) {
+		AmqpOutboundEndpoint endpoint = new AmqpOutboundEndpoint(template);
+
+		endpoint.setExpectReply(false);
+
+		endpoint.setRoutingKey(CHUNKING_REPLIES);
+
+		return endpoint;
+	}
+
+	@Bean
+	@Profile("slave")
+	public SimpleMessageListenerContainer requestContainer(ConnectionFactory connectionFactory) {
 		SimpleMessageListenerContainer container =
 				new SimpleMessageListenerContainer(connectionFactory);
 		container.setQueueNames(CHUNKING_REQUESTS);
+		container.setAutoStartup(false);
+
+		return container;
+	}
+
+	@Bean
+	@Profile("master")
+	public SimpleMessageListenerContainer replyContainer(ConnectionFactory connectionFactory) {
+		SimpleMessageListenerContainer container =
+				new SimpleMessageListenerContainer(connectionFactory);
+		container.setQueueNames(CHUNKING_REPLIES);
 		container.setAutoStartup(false);
 
 		return container;
